@@ -21,7 +21,7 @@ public class RisugamiMixinPlugin implements IMixinConfigPlugin {
 
 	@Override
 	public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-		return false;
+		return true;
 	}
 
 	@Override
