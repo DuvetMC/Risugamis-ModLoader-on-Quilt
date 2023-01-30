@@ -1,0 +1,21 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "org.duvetmc.risugami.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "client": [
+    "C215Mixin",
+    "C227Mixin",
+    "C274Mixin",
+    "C365Mixin",
+    "C452Mixin",
+    "C672Mixin",
+    "C708Mixin",
+    "C843Mixin",
+    "C871Mixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "plugin": "org.duvetmc.risugami.RisugamiMixinPlugin"
+}

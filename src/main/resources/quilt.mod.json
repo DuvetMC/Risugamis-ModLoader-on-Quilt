@@ -1,0 +1,30 @@
+{
+	"schema_version": 1,
+	"quilt_loader": {
+		"group": "org.duvetmc",
+		"id": "risugami-quilt",
+		"version": "${version}",
+		"metadata": {
+			"name": "Risugami's ModLoader on Quilt",
+			"description": "A simple reimplementation of Risugami's ModLoader on top of Quilt",
+			"contributors": {
+				"DuvetMC": "Owner"
+			},
+			"contact": {
+				"issues": "https://github.com/DuvetMC/Risugamis-ModLoader-on-Quilt/issues",
+				"sources": "https://github.com/DuvetMC/Risugamis-ModLoader-on-Quilt"
+			},
+			"icon": "assets/example_mod/icon.png"
+		},
+		"intermediate_mappings": "net.fabricmc:intermediary",
+		"entrypoints": {
+		},
+		"depends": [
+			{
+				"id": "quilt_loader",
+				"versions": ">=0.17.6-"
+			}
+		]
+	},
+	"mixin": "risugami.mixins.json"
+}
