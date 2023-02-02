@@ -68,8 +68,13 @@ import net.minecraft.client.Minecraft;
 import org.duvetmc.risugami.impl.C215Duck;
 import org.duvetmc.risugami.mixin.McInstanceGetter;
 import org.lwjgl.input.Keyboard;
+import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FieldNode;
 import org.quiltmc.loader.api.QuiltLoader;
+import org.quiltmc.loader.impl.QuiltLoaderImpl;
+import org.quiltmc.loader.impl.game.minecraft.Hooks;
+import org.quiltmc.loader.impl.game.minecraft.MinecraftGameProvider;
 import org.spongepowered.tools.obfuscation.mapping.common.MappingProvider;
 import sschr15.tools.qblo.MemberAccess;
 import sschr15.tools.qblo.Unsafe;
@@ -213,37 +218,49 @@ public final class ModLoader {
             throw new FileNotFoundException(path.toString());
         }
 
-        try {
-            Class.forName("net.minecraft.class_1");
-        } catch (ClassNotFoundException e) {
-            // No remapping necessary unless we're in a funky dev env and i can't be bothered to check
+		var provider = ((MinecraftGameProvider) QuiltLoaderImpl.INSTANCE.getGameProvider());
+		if (!provider.isObfuscated()) {
+            // No remapping necessary
             Files.copy(path, cachePath);
             return;
         }
 
-        Path mappingsJar = QuiltLoader.getConfigDir().resolve("rgml/mappings.jar");
-        if (Files.notExists(mappingsJar)) {
-            try (InputStream in = ModLoader.class.getResourceAsStream("META-INF/jars/mappings.jar")) {
-                if (in == null) {
-                    throw new FileNotFoundException("mappings.jar");
-                }
-                Files.copy(in, mappingsJar);
-            }
-        }
+		var mappingResolver = QuiltLoaderImpl.INSTANCE.getMappingResolver();
 
-        TinyRemapper remapper = TinyRemapper.newRemapper()
-                .withMappings(TinyUtils.createTinyMappingProvider(mappingsJar, "official", "intermediary"))
-                .build();
-
-        remapper.readInputs(path);
-        remapper.apply((s, bytes) -> {
-            try {
-                Files.createDirectories(cachePath.getParent());
-                Files.write(cachePath, bytes);
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        });
+		if (path.toString().endsWith(".jar") || path.toString().endsWith(".zip")) {
+			try (FileSystem in = FileSystems.newFileSystem(path); FileSystem out = FileSystems.newFileSystem(cachePath)) {
+				Files.walk(in.getPath("/"))
+					.filter(Files::isRegularFile)
+					.forEach(p -> {
+						try {
+							if (!p.toString().endsWith(".class") || true) {
+								Files.copy(p, out.getPath("").resolve(p));
+							} else {
+								ClassNode node = new ClassNode();
+								try (InputStream is = Files.newInputStream(p)) {
+									new ClassReader(is).accept(node, 0);
+								}
+								boolean isSubclassOfMinecraftClass = false;
+								if (node.superName != null) {
+									String prev = node.superName;
+									node.superName = mappingResolver.mapClassName("official", node.superName.replace('/', '.')).replace('.', '/');
+									isSubclassOfMinecraftClass = !prev.equals(node.superName);
+								}
+								for (FieldNode field : node.fields) {
+									if (field.signature.length() > 2 && field.signature.startsWith("L") && field.signature.endsWith(";")) {
+										field.signature = "L" + mappingResolver.mapClassName(
+											"official",
+											field.signature.substring(1, field.signature.length() - 1).replace('/', '.')
+										).replace('.', '/') + ";";
+									}
+								}
+							}
+						} catch (IOException e) {
+							throw new RuntimeException(e);
+						}
+					});
+			}
+		}
     }
 
     private static void addMod(Path path) {

@@ -49,6 +49,11 @@ public class RisugamiMixinPlugin implements IMixinConfigPlugin {
 						field.visibleAnnotations.remove(i--);
 						field.access |= Opcodes.ACC_STATIC;
 					}
+					if (field.visibleAnnotations.get(i).desc.equals("Lorg/duvetmc/risugami/Public;")) {
+						field.visibleAnnotations.remove(i--);
+						field.access &= ~(Opcodes.ACC_PRIVATE | Opcodes.ACC_PROTECTED);
+						field.access |= Opcodes.ACC_PUBLIC;
+					}
 				}
 			}
 		}

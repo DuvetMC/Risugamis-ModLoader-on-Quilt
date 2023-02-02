@@ -12,7 +12,8 @@
     "C672Mixin",
     "C708Mixin",
     "C843Mixin",
-    "C871Mixin"
+    "C871Mixin",
+    "McInstanceGetter"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -8,11 +8,14 @@ import org.duvetmc.risugami.risuimpl.ModLoader;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.Slice;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 @Mixin(net.minecraft.class_215.class)
 public class C215Mixin implements C215Duck {
@@ -22,14 +25,28 @@ public class C215Mixin implements C215Duck {
 	@Shadow @Public
 	private int field_1095;
 
-	@Static
-	public boolean cfgGrassFix = true;
+	@Shadow
+	public static boolean field_3594;
 
-	@Public // Using this to access in clinit
+	@Unique
+	private int prevF1095;
+
+	@Public
+	private boolean cfgGrassFix = true;
+
+	@Public
 	private static float[][] redstoneColors = new float[16][];
 
-	@Public // to avoid local slot `0` from being used as `this`
+	@Public
 	private static void setRedstoneColors(float[][] colors) {
+		if (colors.length != 16)
+			throw new IllegalArgumentException("colors must be 16 elements long! (was " + colors.length + ")");
+
+		for (float[] color : colors) {
+			if (color.length != 3)
+				throw new IllegalArgumentException("color channels must be 3 elements long! (was " + color.length + ")");
+		}
+
 		redstoneColors = colors;
 	}
 
@@ -55,8 +72,24 @@ public class C215Mixin implements C215Duck {
 		}
 	}
 
+	@Inject(
+			method = "method_1506",
+			at = @At(value = "INVOKE", target = "Lnet/minecraft/class_215;method_2877(Lnet/minecraft/class_18;IIIZ)Z"),
+			cancellable = true,
+			locals = LocalCapture.CAPTURE_FAILHARD
+	)
+	private void modLoaderRenderWorldBlock(class_18 c18, int v2, int v3, int v4, CallbackInfoReturnable<Boolean> cir, int i) {
+		if (i == 17) {
+			return;
+		}
+
+		if (ModLoader.RenderWorldBlock((class_215) (Object) this, this.field_1098, v2, v3, v4, c18, i)) {
+			cir.setReturnValue(true);
+		}
+	}
+
 	/**
-	 * @author sschr15, Notch, and whoever-the-hec made Risugami's ModLoader
+	 * @author sschr15, Notch, and Risugami
 	 * @reason Redstone colors
 	 */
 	@Overwrite
@@ -81,13 +114,13 @@ public class C215Mixin implements C215Duck {
 		double d2 = (float)l / 256.0F;
 		double d3 = ((float)l + 15.99F) / 256.0F;
 		boolean flag = class_490.method_1740(this.field_1098, i1 - 1, j1, k1, 1)
-			|| !this.field_1098.method_471(i1 - 1, j1, k1) && class_490.method_1740(this.field_1098, i1 - 1, j1 - 1, k1, -1);
+				|| !this.field_1098.method_471(i1 - 1, j1, k1) && class_490.method_1740(this.field_1098, i1 - 1, j1 - 1, k1, -1);
 		boolean flag1 = class_490.method_1740(this.field_1098, i1 + 1, j1, k1, 3)
-			|| !this.field_1098.method_471(i1 + 1, j1, k1) && class_490.method_1740(this.field_1098, i1 + 1, j1 - 1, k1, -1);
+				|| !this.field_1098.method_471(i1 + 1, j1, k1) && class_490.method_1740(this.field_1098, i1 + 1, j1 - 1, k1, -1);
 		boolean flag2 = class_490.method_1740(this.field_1098, i1, j1, k1 - 1, 2)
-			|| !this.field_1098.method_471(i1, j1, k1 - 1) && class_490.method_1740(this.field_1098, i1, j1 - 1, k1 - 1, -1);
+				|| !this.field_1098.method_471(i1, j1, k1 - 1) && class_490.method_1740(this.field_1098, i1, j1 - 1, k1 - 1, -1);
 		boolean flag3 = class_490.method_1740(this.field_1098, i1, j1, k1 + 1, 0)
-			|| !this.field_1098.method_471(i1, j1, k1 + 1) && class_490.method_1740(this.field_1098, i1, j1 - 1, k1 + 1, -1);
+				|| !this.field_1098.method_471(i1, j1, k1 + 1) && class_490.method_1740(this.field_1098, i1, j1 - 1, k1 + 1, -1);
 		if (!this.field_1098.method_471(i1, j1 + 1, k1)) {
 			if (this.field_1098.method_471(i1 - 1, j1, k1) && class_490.method_1740(this.field_1098, i1 - 1, j1 + 1, k1, -1)) {
 				flag = true;
@@ -253,21 +286,12 @@ public class C215Mixin implements C215Duck {
 		return true;
 	}
 
-	@Redirect(
-		method = "method_2255",
-		at = @At(value = "INVOKE", target = "Lnet/minecraft/class_18;method_734(Lnet/minecraft/class_447;IIII)I"),
-		slice = @Slice(from = @At(value = "FIELD", target = "Lnet/minecraft/class_215;field_3234:F"), to = @At("RETURN"))
+	@Inject(
+			method = {"method_2255", "method_1413"},
+			at = @At("HEAD")
 	)
-	private int ensureCfgGrassFix(class_18 c18, class_447 c447, int i, int j, int k, int l) {
-		return cfgGrassFix ? -1 : c18.method_734(c447, i, j, k, l);
-	}
-
-	@Redirect(
-		method = "method_1413",
-		at = @At(value = "FIELD", target = "Lnet/minecraft/class_215;field_3594:Z")
-	)
-	private boolean actuallyCfgGrassFix() {
-		return cfgGrassFix;
+	private void cfgGrassFixSetup(CallbackInfoReturnable<Boolean> cir) {
+		field_3594 = cfgGrassFix; // Ensure synchronization
 	}
 
 	@Inject(
